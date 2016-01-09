@@ -1,0 +1,46 @@
+{
+  "name": "jsreport-migrate",
+  "version": "0.0.0",
+  "description": "Collection of migration scripts for jsreport",
+  "bin": {
+    "jsreport-migrate": "./bin/jsreport-migrate"
+  },
+  "scripts": {
+    "clean": "rimraf lib",
+    "build": "babel src --out-dir lib",
+    "lint": "eslint src test",
+    "test": "mocha test/test.js",
+    "prepublish": "npm-run-all lint clean build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bjrmatos/jsreport-migrate.git"
+  },
+  "keywords": [
+    "jsreport",
+    "migration",
+    "jsreport-migration",
+    "jsreport-templates"
+  ],
+  "author": "BJR Matos <bjrmatos@gmail.com> (https://github.com/bjrmatos)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bjrmatos/jsreport-migrate/issues"
+  },
+  "homepage": "https://github.com/bjrmatos/jsreport-migrate#readme",
+  "dependencies": {
+    "debug": "2.2.0"
+  },
+  "devDependencies": {
+    "babel-cli": "6.4.0",
+    "babel-core": "6.4.0",
+    "babel-preset-es2015-loose": "6.1.4",
+    "babel-preset-stage-2": "6.3.13",
+    "eslint": "1.10.3",
+    "eslint-config-airbnb": "3.1.0",
+    "mocha": "2.3.4",
+    "npm-run-all": "1.4.0",
+    "rimraf": "2.5.0",
+    "should": "8.0.2"
+  }
+}
