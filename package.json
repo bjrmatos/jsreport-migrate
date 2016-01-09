@@ -6,6 +6,7 @@
     "jsreport-migrate": "./bin/jsreport-migrate"
   },
   "scripts": {
+    "start": "npm run build && node bin/jsreport-migrate",
     "clean": "rimraf lib",
     "build": "babel src --out-dir lib",
     "lint": "eslint src test",
@@ -29,7 +30,10 @@
   },
   "homepage": "https://github.com/bjrmatos/jsreport-migrate#readme",
   "dependencies": {
-    "debug": "2.2.0"
+    "chalk": "1.1.1",
+    "debug": "2.2.0",
+    "inquirer": "0.11.1",
+    "require-dir": "0.3.0"
   },
   "devDependencies": {
     "babel-cli": "6.4.0",
