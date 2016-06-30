@@ -3,6 +3,7 @@
 import path from 'path';
 import fs from 'fs';
 import assign from 'object-assign';
+import deepAssign from 'deep-assign';
 import chalk from 'chalk';
 import mkdirp from 'mkdirp';
 import Promise from 'pinkie-promise'; // eslint-disable-line no-shadow
@@ -168,7 +169,7 @@ function migrateScripts(basePath) {
       log(`migrating script file [${dataFile.absolutePath}]..`);
 
       if (dataFile.content.name == null || dataFile.content.name === '') {
-        return Promise.reject(new Error(`Invalid name for data file [${dataFile.name}]`));
+        return Promise.reject(new Error(`Invalid name for script file [${dataFile.name}]`));
       }
 
       // for each data file generate two files (config.json y content.js)
@@ -207,8 +208,72 @@ function migrateScripts(basePath) {
   );
 }
 
-function migrateTemplates() {
-  return Promise.resolve(null);
+function migrateTemplates(basePath) {
+  const pathToTemplates = path.join(basePath, 'data/templates');
+
+  return (
+    readNeDBFilesInDirectory(pathToTemplates)
+    .then(pmap(dataFile => {
+      let configData = {},
+          pathToDirDataFile,
+          pathToDataConfigFile,
+          pathToDataContentFile,
+          pathToDataHelpersFile;
+
+      log(`migrating template file [${dataFile.absolutePath}]..`);
+
+      if (dataFile.content.name == null || dataFile.content.name === '') {
+        return Promise.reject(new Error(`Invalid name for template file [${dataFile.name}]`));
+      }
+
+      // for each data file generate three files (config.json, content.[engine-extension], helpers.js)
+      pathToDirDataFile = path.join(dataFile.basePath, dataFile.content.name);
+      pathToDataConfigFile = path.join(pathToDirDataFile, 'config.json');
+      pathToDataContentFile = path.join(pathToDirDataFile, `content.${dataFile.content.engine}`);
+      pathToDataHelpersFile = path.join(pathToDirDataFile, 'helpers.js');
+
+      // taking all json fields from template's content
+      configData = deepAssign({}, dataFile.content);
+
+      // seems like creationDate field was not used in template files
+
+      // format date field
+      configData.modificationDate = {
+        $$date: getTimestampFromNedbDate(dataFile.content.modificationDate)
+      };
+
+      if (configData.scripts == null && configData.script != null) {
+        configData.scripts = [configData.script];
+      }
+
+      // removing unnecessary fields
+      delete configData.name;
+      delete configData.script;
+      delete configData.content;
+      delete configData.helpers;
+
+      return (
+        unlinkFile(dataFile.absolutePath)
+        .then(() => {
+          let saveOperations = [];
+
+          saveOperations.push(
+            saveNewFile(pathToDataConfigFile, JSON.stringify(configData, undefined, 2))
+          );
+
+          saveOperations.push(
+            saveNewFile(pathToDataContentFile, dataFile.content.content)
+          );
+
+          saveOperations.push(
+            saveNewFile(pathToDataHelpersFile, dataFile.content.helpers)
+          );
+
+          return Promise.all(saveOperations);
+        })
+      );
+    }))
+  );
 }
 
 function migrateImages() {
