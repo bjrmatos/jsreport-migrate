@@ -1,6 +1,6 @@
 {
   "name": "jsreport-migrate",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Collection of migration scripts for jsreport",
   "bin": {
     "jsreport-migrate": "./bin/jsreport-migrate"
