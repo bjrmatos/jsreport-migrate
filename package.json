@@ -42,7 +42,7 @@
     "pify": "2.3.0",
     "pinkie-promise": "2.0.1",
     "promise-filter": "1.1.0",
-    "promise-map": "1.1.0",
+    "promise-map": "bjrmatos/promise-map",
     "read-installed": "4.0.3",
     "require-dir": "0.3.0",
     "rimraf": "2.5.0",
