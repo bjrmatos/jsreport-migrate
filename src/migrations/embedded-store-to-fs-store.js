@@ -83,7 +83,7 @@ const migration = (basePath) => {
     return Promise.all([
       migrateData(basePath),
       migrateScripts(basePath),
-      migrateImages(),
+      migrateImages(basePath),
       migrateTemplates(basePath),
       updateJsreportConnection(jsreportConfig)
     ]);
@@ -276,8 +276,58 @@ function migrateTemplates(basePath) {
   );
 }
 
-function migrateImages() {
-  return Promise.resolve(null);
+function migrateImages(basePath) {
+  const pathToImages = path.join(basePath, 'data/images');
+
+  return (
+    readNeDBFilesInDirectory(pathToImages)
+    .then(pmap(dataFile => {
+      let configData = {},
+          pathToDirDataFile,
+          pathToDataConfigFile,
+          pathToDataContentFile;
+
+      log(`migrating image file [${dataFile.absolutePath}]..`);
+
+      if (dataFile.content.name == null || dataFile.content.name === '') {
+        return Promise.reject(new Error(`Invalid name for image file [${dataFile.name}]`));
+      }
+
+      // for each image file generate two files (config.json y content.[image-extension])
+      pathToDirDataFile = path.join(dataFile.basePath, dataFile.content.name);
+      pathToDataConfigFile = path.join(pathToDirDataFile, 'config.json');
+      pathToDataContentFile = path.join(pathToDirDataFile, `content.${dataFile.content.contentType.split('/').pop()}`);
+
+      configData.contentType = dataFile.content.contentType;
+      configData.shortid = dataFile.content.shortid;
+      configData._id = dataFile.content._id;
+
+      configData.creationDate = {
+        $$date: getTimestampFromNedbDate(dataFile.content.creationDate)
+      };
+
+      configData.modificationDate = {
+        $$date: getTimestampFromNedbDate(dataFile.content.modificationDate)
+      };
+
+      return (
+        unlinkFile(dataFile.absolutePath)
+        .then(() => {
+          let saveOperations = [];
+
+          saveOperations.push(
+            saveNewFile(pathToDataConfigFile, JSON.stringify(configData, undefined, 2))
+          );
+
+          saveOperations.push(
+            saveNewFile(pathToDataContentFile, new Buffer(dataFile.content.content))
+          );
+
+          return Promise.all(saveOperations);
+        })
+      );
+    }))
+  );
 }
 
 /**
