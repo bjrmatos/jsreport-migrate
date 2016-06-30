@@ -6,6 +6,7 @@ import assign from 'object-assign';
 import deepAssign from 'deep-assign';
 import chalk from 'chalk';
 import mkdirp from 'mkdirp';
+import rimraf from 'rimraf';
 import Promise from 'pinkie-promise'; // eslint-disable-line no-shadow
 import pmap from 'promise-map';
 import pfilter from 'promise-filter';
@@ -18,8 +19,10 @@ const mkdirPromise = pify(mkdirp, Promise);
 const readDir = pify(fs.readdir, Promise);
 const readFile = pify(fs.readFile, Promise);
 const writeFile = pify(fs.writeFile, Promise);
+const appendFile = pify(fs.appendFile, Promise);
 const unlinkFile = pify(fs.unlink, Promise);
 const getFileStat = pify(fs.stat, Promise);
+const deleteDirectory = pify(rimraf, Promise);
 const log = (msg) => console.log(chalk.blue(msg));
 
 const migration = (basePath) => {
@@ -89,7 +92,7 @@ const migration = (basePath) => {
       migrateScripts(basePath),
       migrateImages(basePath),
       migrateTemplates(basePath),
-      // migrateUsers(basePath),
+      migrateUsers(basePath),
       updateJsreportConnection(jsreportConfig)
     ]);
   }).then(() => {
@@ -349,54 +352,22 @@ function migrateImages(basePath) {
 }
 
 function migrateUsers(basePath) {
-  const pathToUsers = path.join(basePath, 'data/users');
+  const pathToUsers = path.join(basePath, 'data/users'),
+        pathToUsersfile = path.join(basePath, 'data/users');
 
   return (
     readNeDBFilesInDirectory(pathToUsers)
+    .then((files) => deleteDirectory(pathToUsers).then(() => files))
+    .then((files) => saveNewFile(pathToUsersfile, '').then(() => files))
     .then(pmap(dataFile => {
-      let configData = {},
-          pathToDirDataFile,
-          pathToDataConfigFile,
-          pathToDataContentFile;
-
       log(`migrating user file [${dataFile.absolutePath}]..`);
 
-      if (dataFile.content.name == null || dataFile.content.name === '') {
+      if (dataFile.content.username == null || dataFile.content.username === '') {
         return Promise.reject(new Error(`Invalid name for user file [${dataFile.name}]`));
       }
 
-      // for each data file generate two files (config.json y dataJson.json)
-      pathToDirDataFile = path.join(dataFile.basePath, dataFile.content.name);
-      pathToDataConfigFile = path.join(pathToDirDataFile, 'config.json');
-      pathToDataContentFile = path.join(pathToDirDataFile, 'dataJson.json');
-
-      configData.shortid = dataFile.content.shortid;
-      configData._id = dataFile.content._id;
-
-      configData.creationDate = {
-        $$date: getTimestampFromNedbDate(dataFile.content.creationDate)
-      };
-
-      configData.modificationDate = {
-        $$date: getTimestampFromNedbDate(dataFile.content.modificationDate)
-      };
-
-      return (
-        unlinkFile(dataFile.absolutePath)
-        .then(() => {
-          let saveOperations = [];
-
-          saveOperations.push(
-            saveNewFile(pathToDataConfigFile, JSON.stringify(configData, undefined, 2))
-          );
-
-          saveOperations.push(
-            saveNewFile(pathToDataContentFile, JSON.stringify(JSON.parse(dataFile.content.dataJson), undefined, 2))
-          );
-
-          return Promise.all(saveOperations);
-        })
-      );
+      // for each data file add a json entry to users file
+      return appendFile(pathToUsersfile, JSON.stringify(dataFile.content, undefined, 0));
     }))
   );
 }
