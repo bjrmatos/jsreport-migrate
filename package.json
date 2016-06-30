@@ -29,6 +29,7 @@
     "url": "https://github.com/bjrmatos/jsreport-migrate/issues"
   },
   "homepage": "https://github.com/bjrmatos/jsreport-migrate#readme",
+  "preferGlobal": true,
   "dependencies": {
     "any-promise": "1.3.0",
     "chalk": "1.1.1",
