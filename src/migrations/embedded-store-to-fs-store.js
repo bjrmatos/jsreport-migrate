@@ -26,18 +26,22 @@ const migration = (basePath) => {
   const minimalVersion = '0.10.0',
         minimalVersionRage = `>=${minimalVersion}`;
 
+  let jsreportVersionInstalled;
+
   log('checking if jsreport is installed..');
 
   // requires jsreport >= 0.10
-  return verifyPkgIsInstalled(basePath, 'jsreport', minimalVersionRage).then((isInstalled) => {
+  return verifyPkgIsInstalled(basePath, 'jsreport', minimalVersionRage).then((installedVersion) => {
     let pathToJsreportConfig,
         jsreportConfig;
 
-    if (!isInstalled) {
+    if (!installedVersion) {
       return log(
         `jsreport is not installed or installed version is not supported (must be ${minimalVersionRage}), stopping migration`
       );
     }
+
+    jsreportVersionInstalled = installedVersion;
 
     log('looking for jsreport `dev.config.json` config file..');
 
@@ -85,16 +89,30 @@ const migration = (basePath) => {
       migrateScripts(basePath),
       migrateImages(basePath),
       migrateTemplates(basePath),
+      // migrateUsers(basePath),
       updateJsreportConnection(jsreportConfig)
     ]);
   }).then(() => {
-    log('installing `jsreport-fs-store`..');
+    let versionToInstall;
+
+    if (jsreportVersionInstalled && jsreportVersionInstalled[0] === '0') {
+      versionToInstall = '0.x.x';
+    } else {
+      versionToInstall = '>=1.x.x';
+    }
+
+    log(`installing jsreport-fs-store@${versionToInstall}..`);
 
     // installing jsreport-fs-store
-    return spawnAsync('npm', ['install', 'jsreport-fs-store', '--save'], {
+    return spawnAsync('npm', ['install', `jsreport-fs-store@${versionToInstall}`, '--save'], {
       stdio: 'inherit'
     }).then(() => {
-      log('`jsreport-fs-store` installed');
+      log(`jsreport-fs-store@${versionToInstall} installed`);
+
+      log(
+        'migration complete. If you are using jsreport with a custom server (express) ' +
+        'you probably need to update your initialization logic, if you have some trouble open an issue.'
+      );
     }).catch((installErr) => {
       console.error(installErr);
       log('the installion of `jsreport-fs-store` has failed, try to run `npm install jsreport-fs-store --save` manually');
@@ -321,6 +339,59 @@ function migrateImages(basePath) {
 
           saveOperations.push(
             saveNewFile(pathToDataContentFile, new Buffer(dataFile.content.content))
+          );
+
+          return Promise.all(saveOperations);
+        })
+      );
+    }))
+  );
+}
+
+function migrateUsers(basePath) {
+  const pathToUsers = path.join(basePath, 'data/users');
+
+  return (
+    readNeDBFilesInDirectory(pathToUsers)
+    .then(pmap(dataFile => {
+      let configData = {},
+          pathToDirDataFile,
+          pathToDataConfigFile,
+          pathToDataContentFile;
+
+      log(`migrating user file [${dataFile.absolutePath}]..`);
+
+      if (dataFile.content.name == null || dataFile.content.name === '') {
+        return Promise.reject(new Error(`Invalid name for user file [${dataFile.name}]`));
+      }
+
+      // for each data file generate two files (config.json y dataJson.json)
+      pathToDirDataFile = path.join(dataFile.basePath, dataFile.content.name);
+      pathToDataConfigFile = path.join(pathToDirDataFile, 'config.json');
+      pathToDataContentFile = path.join(pathToDirDataFile, 'dataJson.json');
+
+      configData.shortid = dataFile.content.shortid;
+      configData._id = dataFile.content._id;
+
+      configData.creationDate = {
+        $$date: getTimestampFromNedbDate(dataFile.content.creationDate)
+      };
+
+      configData.modificationDate = {
+        $$date: getTimestampFromNedbDate(dataFile.content.modificationDate)
+      };
+
+      return (
+        unlinkFile(dataFile.absolutePath)
+        .then(() => {
+          let saveOperations = [];
+
+          saveOperations.push(
+            saveNewFile(pathToDataConfigFile, JSON.stringify(configData, undefined, 2))
+          );
+
+          saveOperations.push(
+            saveNewFile(pathToDataContentFile, JSON.stringify(JSON.parse(dataFile.content.dataJson), undefined, 2))
           );
 
           return Promise.all(saveOperations);

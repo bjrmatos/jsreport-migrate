@@ -25,10 +25,10 @@ export default function verifyPkgIsInstalled(folder, pkgName, versionLimit) {
       }
 
       if (versionLimit != null) {
-        return resolve(semver.satisfies(pkgInfo.version, versionLimit));
+        return resolve(semver.satisfies(pkgInfo.version, versionLimit) ? pkgInfo.version : null);
       }
 
-      resolve(true);
+      resolve(pkgInfo.version);
     });
   });
 }
