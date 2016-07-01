@@ -340,7 +340,7 @@ function migrateImages(basePath) {
       };
 
       let imageContent = dataFile.content.content;
-      if (typeof imageContent === 'object') {
+      if (typeof imageContent === 'object' && !Array.isArray(imageContent)) {
         // for some reason, buffers stored with node > 4.0 are represented as objects, we need to map it to arrays
         imageContent = Object.keys(imageContent).map((key) => imageContent[key]);
       }
