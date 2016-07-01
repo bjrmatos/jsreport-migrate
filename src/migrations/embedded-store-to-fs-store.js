@@ -54,7 +54,7 @@ const migration = (basePath) => {
       jsreportConfig = {
         name: 'dev.config.json',
         path: pathToJsreportConfig,
-        content: JSON.parse(fs.readFileSync(pathToJsreportConfig).toString())
+        content: JSON.parse(fixBOM(fs.readFileSync(pathToJsreportConfig).toString()))
       };
     } catch (readConfigErr) {
       log('jsreport config [dev.config.json] is not found');
@@ -69,7 +69,7 @@ const migration = (basePath) => {
         jsreportConfig = {
           name: 'prod.config.json',
           path: pathToJsreportConfig,
-          content: JSON.parse(fs.readFileSync(pathToJsreportConfig).toString()),
+          content: JSON.parse(fixBOM(fs.readFileSync(pathToJsreportConfig).toString())),
           createDevConfig: true
         };
       } catch (readConfigErr) {
@@ -122,6 +122,14 @@ const migration = (basePath) => {
     });
   });
 };
+
+function fixBOM(str) {
+  if (str.charAt(0) === '\uFEFF') {
+    return str.substr(1);
+  }
+
+  return str;
+}
 
 function migrateData(basePath) {
   const pathToData = path.join(basePath, 'data/data');
@@ -331,6 +339,12 @@ function migrateImages(basePath) {
         $$date: getTimestampFromNedbDate(dataFile.content.modificationDate)
       };
 
+      let imageContent = dataFile.content.content;
+      if (typeof imageContent === 'object' && !Array.isArray(imageContent)) {
+        // for some reason, buffers stored with node > 4.0 are represented as objects, we need to map it to arrays
+        imageContent = Object.keys(imageContent).map((key) => imageContent[key]);
+      }
+
       return (
         unlinkFile(dataFile.absolutePath)
         .then(() => {
@@ -341,7 +355,7 @@ function migrateImages(basePath) {
           );
 
           saveOperations.push(
-            saveNewFile(pathToDataContentFile, new Buffer(dataFile.content.content))
+            saveNewFile(pathToDataContentFile, new Buffer(imageContent))
           );
 
           return Promise.all(saveOperations);
